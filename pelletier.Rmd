@@ -1,0 +1,112 @@
+---
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+# M4 Forecasting Case Assignment
+*Michael Pelletier*
+
+```{r}
+library(fpp2)
+library(forecast)
+library(readxl)
+library(urca)
+library(ggplot2)
+
+TouristVisit <- read.table(file = "clipboard", header = TRUE, sep = "\t")
+ts.Touristvists <- ts(as.numeric(unlist(TouristVisit)), frequency = 12, start = c(2001,1))
+ts.Touristvists
+```
+
+### Plot the series indicating the number of foreign tourists arriving in India each month. 
+
+```{r}
+ggseasonplot(ts.Touristvists, year.labels = TRUE)+xlab("Month of Year")+ylab("Total Tourists")+ggtitle("Tourists Activity in India 2001 - 2013")
+```
+
+
+*Looking at the plot, you can see that there is cyclicality and seasonality regarding month to month tourist activity. It seems that the tourist presence in India peaks in September then decreases after January most years. There is also a small jump in July.Lastly, you can see a pretty consistent increase in tourists each year.*
+
+
+### Is the annual total of foreign tourists arriving in India correlated with the annual average exchange rate? 
+```{r}
+Exchange <- read_excel("C:\\Users\\18046\\Documents\\DecModeling\\ExchangeRates.xlsx")
+regression <- lm(Annual ~ Rate, data = Exchange)
+summary(regression)
+
+cor.test(Exchange$Annual,Exchange$Rate)
+```
+
+*I ran a regression model on the annual exchange rate and the annual tourist data from 2001-2013 and the model turned out insignificant. To further investigate, I conducted a Pearson's correlation test and it returned a correlation of 0.4132, which is not very indicative. Therefore, I can not confidently say there is very much correlation between tourists visiting India and the Exchange rate between India and US monetary systems.
+
+### Is there an inherent trend in the series?
+```{r}
+plot(ts.Touristvists)
+```
+
+
+*Looking at the Random Walk Model above, it is clear there is a positive drift within the data. Also, year by year the mean increases*
+
+
+### Does the graph indicate any seasonal behavior? 
+```{r}
+ggsubseriesplot(ts.Touristvists)
+ggseasonplot(ts.Touristvists, polar = TRUE) + ylab("Total Tourists")
+```
+
+
+*Above are two plots that show consistent seasonality within the data.Similar to our initial visualization of the data, both plots show peaks of tourism from September to February and a decrease in the summer, apart from July where is a small jump in tourism.*
+
+
+### Is the series stationary? Does it need to be differenced? If yes, what are the implications?
+```{r}
+ggAcf(ts.Touristvists)
+
+summary(ur.kpss(ts.Touristvists))
+summary(ur.kpss(diff(ts.Touristvists)))
+plot(diff(ts.Touristvists))
+
+
+cbind("Original" = ts.Touristvists,
+"Diff " = diff(ts.Touristvists,12),
+"Seasoned Logs"= diff(log(ts.Touristvists),12),
+"Double Seasoned Logs" = diff(diff(log(ts.Touristvists),12),1)) %>% 
+  autoplot(facets=TRUE)
+
+```
+
+
+
+*Other than the seasonality and trend observed above, there are a few more indicators that tell us this data is not stationary.First, our ACF gradually decreases and even increases at lag 12 which further proves seasonal behavior. Furthermore, I ran some KPSS tests and it returned a value of test-statistic at 2.5901, which is way above the critical value of significance, hence it did not pass the stationary test. I then differentiated the data and ran the same test which returned a test-statistic of 0.0433 which passes the stationary test.*
+
+
+
+### Develop and ARIMA model to forecast the series. 
+```{r}
+par(mfrow = c(3,1))
+plot(ts.Touristvists)
+acf(ts.Touristvists)
+pacf(ts.Touristvists)
+
+
+auto.arima(ts.Touristvists, seasonal = T)
+```
+
+*I found through trial and error with auto.arima I was using too many parameters. This is the model I found to have the best results.*
+
+### Using the developed ARIMA model, forecast the expected tourist arrivals in India over the next six months. 
+```{r}
+fit <- auto.arima(ts.Touristvists, seasonal = T)
+fit %>% forecast(h=6) %>% autoplot()
+fit %>% forecast(h=6)
+```
+
+*Forecasts for the next 6 months are listed above. Results look promising as at first glance, it has the amount of tourists decreasing heading into the summer months.*
+
+### Evaluate the quality of your forecast and provide justification.
+```{r}
+checkresiduals(fit)
+```
+
+*Evaluating my results, the Ljung-Box test returns a p-value of 0.02432 which means are results are significant!*
