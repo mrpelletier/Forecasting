@@ -4,9 +4,6 @@ output:
   html_document: default
   pdf_document: default
 ---
-# M4 Forecasting Case Assignment
-*Michael Pelletier*
-
 ```{r}
 library(fpp2)
 library(forecast)
